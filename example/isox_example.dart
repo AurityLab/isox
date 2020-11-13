@@ -1,59 +1,37 @@
 import 'package:isox/src/isox_command.dart';
 import 'package:isox/src/isox_command_registry.dart';
-import 'package:isox/src/isox_consumer.dart';
 import 'package:isox/src/isox_facade.dart';
 
 void main() async {
-  final instance = Isox.start(_initIsolate);
+  // Star the Isolate
+  final instance = await Isox.start(_initIsolate);
+  print(instance);
 
-  final result = await instance.run(addCommand, 1);
+  await instance.run(addCommand, 10);
+  await instance.run(addCommand, 10);
+  final addResult = await instance.run(addCommand, 10);
+  print(addResult);
 
-  // final result = await instance.run(addCommand, 10);
-  // print(result);
+  await instance.close();
 }
 
-const addCommand = InlineIsoxCommand('name', _exec);
-Future<int> _exec(int input, CounterState state) async {
-  return ++state.count;
+class CounterState {
+  int count = 0;
 }
 
-CounterState _initIsolate(IsoxRegistry<CounterState> consumer) {
-  consumer.add(addCommand);
+CounterState _initIsolate(IsoxRegistry registry) {
+  registry.errorHandler = (error, trace) {
+    print(error);
+    print(trace);
+  };
+
+  registry.add(addCommand);
+  registry.add(addCommand);
 
   return CounterState();
 }
 
-class CounterState {
-  int count;
-}
-
-/*
 const addCommand = InlineIsoxCommand('name', _exec);
-Future<int> _exec(int input, CounterState state) async {
-  return ++state.count;
-}
 
-const addCommand = InlineIsoxCommand('add', _exec);
-
-Future<int> _exec(int input, CounterState state) async {
-  return ++state.count;
-}
-
-const add2Command = InlineIsoxCommand('add2', _exec2);
-
-Future<int> _exec2(int input, CounterState state) async {
-  state.count = state.count + 2;
-  return state.count;
-}
-
-class SubtractCommand extends IsoxCommand<int, int, CounterState> {
-  const SubtractCommand();
-
-  @override
-  Future<int> run(int input, CounterState state) async {
-    return --state.count;
-  }
-
-  @override
-  String get name => 'subtract';
-}*/
+Future<int> _exec(int input, CounterState state) async =>
+    state.count = (state.count + input);

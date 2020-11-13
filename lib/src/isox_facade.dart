@@ -1,9 +1,11 @@
-import 'package:isox/src/isox_command.dart';
-import 'package:isox/src/isox_consumer.dart';
 import 'package:isox/src/isox_instance.dart';
-import 'package:isox/src/isox_loader.dart';
 
 class Isox {
-  static IsoxInstance start<S>(IsoxIsolateInit<S> init) {}
-  static IsoxInstance startStatless<S>(IsoxIsolateInit<S> init) {}
+  /// Will start a new stateful [IsoxInstance] using the given [init] function.
+  static Future<IsoxInstance> start<S>(
+    IsoxIsolateInit<S> init, {
+    bool keepAlive = true,
+  }) {
+    return IsoxInstance.loadIsolate<S>(init);
+  }
 }
