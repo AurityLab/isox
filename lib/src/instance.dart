@@ -1,15 +1,8 @@
 import 'dart:async';
 import 'dart:isolate';
 
-import 'package:isox/src/isox_command.dart';
-import 'package:isox/src/isox_command_registry.dart';
-
-/// Function which supplies a [consumer] and expects the initial state of
-/// type [S] to be returned.
-typedef IsoxIsolateInit<S> = S Function(IsoxRegistry consumer);
-
-/// Function which defines a error handler for all errors within an isolate.
-typedef IsoxErrorHandler = void Function(dynamic error, StackTrace stackTrace);
+import 'package:isox/isox.dart';
+import 'package:isox/src/config_implementation.dart';
 
 class IsoxInstance<S> {
   // The isolate which is represented by this instance.
@@ -120,7 +113,7 @@ class IsoxInstance<S> {
 
         completer.complete(message.commandOutput);
 
-        _commandCompleter.remove(completer);
+        _commandCompleter.remove(message.identifier);
       }
     });
   }
@@ -132,7 +125,7 @@ void _loadIsoxIsolate<S>(_IsoxIsolateInitializer<S> initializer) {
   final itm = initializer.sendPort;
 
   dynamic state;
-  var registry = IsoxRegistry();
+  var registry = InternalIsoxConfig();
 
   try {
     state = initializer.init(registry);

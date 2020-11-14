@@ -1,8 +1,7 @@
-/// Support for doing something awesome.
-///
-/// More dartdocs go here.
 library isox;
 
-// export 'src/isox_base.dart';
-
-// TODO: Export any libraries intended for clients of this package.
+export 'package:isox/src/facade.dart';
+export 'package:isox/src/typedefs.dart';
+export 'package:isox/src/command.dart';
+export 'package:isox/src/config.dart';
+export 'package:isox/src/instance.dart';

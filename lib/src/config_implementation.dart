@@ -1,20 +1,21 @@
 import 'dart:collection';
 
-import 'package:isox/src/isox_command.dart';
-import 'package:isox/src/isox_instance.dart';
+import 'package:isox/isox.dart';
 
-class IsoxRegistry {
-  /// Holds all available commands within the registry. The commands are
-  /// mapped by their keys.
+class InternalIsoxConfig implements IsoxConfig {
+  /// Holds all available commands within this config. The commands are
+  /// mapped by their corresponding keys.
   final Map<String, IsoxCommand<dynamic, dynamic, dynamic>> _commandsMap =
       HashMap();
 
+  /// Holds the [IsoxErrorHandler] instance within this config.
   IsoxErrorHandler _errorHandler;
 
   /// Will add the given [command] to the registry. [command] must not be null.
   /// If there is already a command with the same name,
   /// a [IsoxRegistryDuplicationException] will be thrown.
-  void add(IsoxCommand<dynamic, dynamic, dynamic> command) {
+  @override
+  void command(IsoxCommand<dynamic, dynamic, dynamic> command) {
     assert(command != null);
 
     // Check for duplicates.
@@ -30,6 +31,7 @@ class IsoxRegistry {
   Map<String, IsoxCommand<dynamic, dynamic, dynamic>> get commands =>
       UnmodifiableMapView(_commandsMap);
 
+  @override
   set errorHandler(IsoxErrorHandler handler) => _errorHandler = handler;
 
   /// Will check if there is already a command registered with the given [name].
