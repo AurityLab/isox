@@ -29,7 +29,7 @@ class IsoxInstance<S> {
     _bindListener();
   }
 
-  static Future<IsoxInstance<S>> loadIsolate<S>(IsoxIsolateInit<S> init) async {
+  static Future<IsoxInstance<S>> loadIsolate<S>(IsoxInit<S> init) async {
     // Create a receive port for isolate to main communication.
     final itm = ReceivePort();
 
@@ -151,7 +151,7 @@ void _loadIsoxIsolate<S>(_IsoxIsolateInitializer<S> initializer) {
 }
 
 class _IsoxIsolateInitializer<S> {
-  final IsoxIsolateInit<S> init;
+  final IsoxInit<S> init;
   final SendPort sendPort;
 
   _IsoxIsolateInitializer(this.init, this.sendPort);

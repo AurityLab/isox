@@ -17,6 +17,6 @@ class Isox {
   /// Will start a new [IsoxInstance] with the given [init] function.
   /// The [init] function must be a top-level function, otherwise the
   /// instantiation will fail.
-  static Future<IsoxInstance> start<S>(IsoxIsolateInit<S> init) =>
+  static Future<IsoxInstance> start<S>(IsoxInit<S> init) =>
       IsoxInstance.loadIsolate<S>(init);
 }
