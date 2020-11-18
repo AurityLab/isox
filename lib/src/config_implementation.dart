@@ -31,6 +31,9 @@ class InternalIsoxConfig implements IsoxConfig {
   Map<String, IsoxCommand<dynamic, dynamic, dynamic>> get commands =>
       UnmodifiableMapView(_commandsMap);
 
+  /// Will return the ErrorHandler from this config.
+  IsoxErrorHandler get errorHandler => _errorHandler;
+
   @override
   set errorHandler(IsoxErrorHandler handler) => _errorHandler = handler;
 

@@ -125,10 +125,10 @@ void _loadIsoxIsolate<S>(_IsoxIsolateInitializer<S> initializer) {
   final itm = initializer.sendPort;
 
   dynamic state;
-  var registry = InternalIsoxConfig();
+  var config = InternalIsoxConfig();
 
   try {
-    state = initializer.init(registry);
+    state = initializer.init(config);
   } catch (ex) {
     initializer.sendPort.send(_IsoxInitializingException());
     return;
@@ -137,14 +137,20 @@ void _loadIsoxIsolate<S>(_IsoxIsolateInitializer<S> initializer) {
   // Send the created port to the main.
   initializer.sendPort.send(mti.sendPort);
 
-  mti.listen((message) {
+  mti.listen((message) async {
     if (message is _IsoxInstanceRequest) {
-      final cmd = registry.commands[message.commandName];
+      final cmd = config.commands[message.commandName];
 
       if (cmd != null) {
-        cmd.run(message.commandInput, state).then((value) {
-          itm.send(_IsoxInstanceResponse(message.identifier, value));
-        });
+        try {
+          final cmdResult = await cmd.run(message.commandInput, state);
+
+          itm.send(_IsoxInstanceResponse(message.identifier, cmdResult));
+        } catch (ex, stack) {
+          if (config.errorHandler != null) {
+            config.errorHandler(ex, stack);
+          }
+        }
       }
     }
   });
