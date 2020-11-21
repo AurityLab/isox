@@ -13,7 +13,7 @@ class IsoxInstance<S> {
   final ReceivePort _itmPort;
 
   // The itm subscription.
-  final StreamSubscription<dynamic> _subscription;
+  late final StreamSubscription<dynamic> _subscription;
 
   // Counter for the commands sent to the isolate.
   int _count = 0;
@@ -41,7 +41,7 @@ class IsoxInstance<S> {
 
     final completer = Completer<IsoxInstance<S>>();
 
-    StreamSubscription subscription;
+    late StreamSubscription subscription;
     subscription = itm.listen((message) {
       if (message is SendPort) {
         // Return the instance.
@@ -75,7 +75,7 @@ class IsoxInstance<S> {
 
     // Return immediately if no response is expected.
     if (!command.hasResponse) {
-      return null;
+      return Future.value();
     }
 
     // Create the completer for this command.
@@ -109,7 +109,7 @@ class IsoxInstance<S> {
   void _bindListener() {
     _subscription.onData((message) {
       if (message is _IsoxInstanceResponse) {
-        final completer = _commandCompleter[message.identifier];
+        final completer = _commandCompleter[message.identifier]!;
 
         completer.complete(message.commandOutput);
 
@@ -148,7 +148,7 @@ void _loadIsoxIsolate<S>(_IsoxIsolateInitializer<S> initializer) {
           itm.send(_IsoxInstanceResponse(message.identifier, cmdResult));
         } catch (ex, stack) {
           if (config.errorHandler != null) {
-            config.errorHandler(ex, stack);
+            config.errorHandler!(ex, stack);
           }
         }
       }

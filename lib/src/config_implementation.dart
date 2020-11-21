@@ -9,15 +9,13 @@ class InternalIsoxConfig implements IsoxConfig {
       HashMap();
 
   /// Holds the [IsoxErrorHandler] instance within this config.
-  IsoxErrorHandler _errorHandler;
+  IsoxErrorHandler? _errorHandler;
 
   /// Will add the given [command] to the registry. [command] must not be null.
   /// If there is already a command with the same name,
   /// a [IsoxRegistryDuplicationException] will be thrown.
   @override
   void command(IsoxCommand<dynamic, dynamic, dynamic> command) {
-    assert(command != null);
-
     // Check for duplicates.
     _checkDuplicate(command.name);
 
@@ -32,10 +30,10 @@ class InternalIsoxConfig implements IsoxConfig {
       UnmodifiableMapView(_commandsMap);
 
   /// Will return the ErrorHandler from this config.
-  IsoxErrorHandler get errorHandler => _errorHandler;
+  IsoxErrorHandler? get errorHandler => _errorHandler;
 
   @override
-  set errorHandler(IsoxErrorHandler handler) => _errorHandler = handler;
+  set errorHandler(IsoxErrorHandler? handler) => _errorHandler = handler;
 
   /// Will check if there is already a command registered with the given [name].
   /// If there is already one, an exception will be thrown.

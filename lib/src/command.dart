@@ -7,7 +7,7 @@ import 'package:isox/isox.dart';
 class IsoxCommand<I, O, S> {
   final String _name;
   final IsoxCommandRunner<I, O, S> _runner;
-  final bool hasResponseOverride;
+  final bool? hasResponseOverride;
 
   const IsoxCommand(
     this._name,
