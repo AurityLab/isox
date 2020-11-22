@@ -1,5 +1,5 @@
 name: isox
-description: A starting point for Dart libraries or applications.
+description: Run your Isolates with bidirectional communication. Isox provides a simple request/reply pattern to communicate with your Isolates.
 version: 0.1.0
 
 environment:
