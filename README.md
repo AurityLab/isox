@@ -1,6 +1,6 @@
 # Isox
 
-Isolate runner which provides a request/response pattern for isolates.
+Run your Isolates with bidirectional communication. Isox provides a simple request/reply pattern to communicate with your Isolates.
 
 ## Usage
 
