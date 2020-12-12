@@ -56,6 +56,20 @@ void main() {
         );
       });
 
+      test('should throw exception on sync command runner', () async {
+        await expect(
+          () async => instance.run(_errorSyncCommand, null),
+          throwsA(TypeMatcher<IsoxWrappedException>()),
+        );
+      });
+
+      test('should throw exception if command was not found', () async {
+        await expect(
+          () async => instance.run(_unregisteredCommand, null),
+          throwsA(TypeMatcher<IsoxCommandNotFoundException>()),
+        );
+      });
+
       tearDown(() async {
         await instance.close();
         instance = null;
@@ -77,6 +91,7 @@ _SimpleState _initializerVoidVariety(IsoxConfig config) {
   config.command(_voidCommand);
   config.command(_immediateVoidCommand);
   config.command(_errorCommand);
+  config.command(_errorSyncCommand);
 
   config.command(_stateCommand);
 
@@ -113,6 +128,22 @@ final _errorCommand = IsoxCommand('errorCommand', _errorCommandRunner);
 Future<void> _errorCommandRunner(void input, _SimpleState state) async {
   throw Exception('Test!');
 }
+
+final _errorSyncCommand = IsoxCommand(
+  'errorSyncCommand',
+  _errorSyncCommandRunner,
+);
+
+Future<void> _errorSyncCommandRunner(void input, _SimpleState state) {
+  throw Exception('Test!');
+}
+
+final _unregisteredCommand = IsoxCommand(
+  'unregisteredCommand',
+  _unregisteredCommandRunner,
+);
+
+Future<void> _unregisteredCommandRunner(void input, _SimpleState state) {}
 
 class _SimpleState {
   int counter = 0;
