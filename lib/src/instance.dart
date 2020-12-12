@@ -3,6 +3,7 @@ import 'dart:isolate';
 
 import 'package:isox/isox.dart';
 import 'package:isox/src/config_implementation.dart';
+import 'package:isox/src/exceptions.dart';
 
 class IsoxInstance<S> {
   // The isolate which is represented by this instance.
@@ -30,28 +31,47 @@ class IsoxInstance<S> {
   }
 
   static Future<IsoxInstance<S>> loadIsolate<S>(IsoxInit<S> init) async {
+    // Define the completer for the initialization of this instance.
+    // The future of this completer will later on be returned by this method.
+    final completer = Completer<IsoxInstance<S>>();
+
     // Create a receive port for isolate to main communication.
     final itm = ReceivePort();
 
-    // Start the actual isolate.
+    // Start the actual isolate in paused state to initialize all listeners
+    // for the ports.
     final isolate = await Isolate.spawn(
       _loadIsoxIsolate,
       _IsoxIsolateInitializer<S>(init, itm.sendPort),
+      paused: true,
     );
 
-    final completer = Completer<IsoxInstance<S>>();
+    // Holds the subscription for the isolate-to-main port.
+    StreamSubscription itmSubscription;
 
-    StreamSubscription subscription;
-    subscription = itm.listen((message) {
+    // Add a listener to the isolate-to-main port.
+    itmSubscription = itm.listen((message) {
       if (message is SendPort) {
-        // Return the instance.
+        // Create the instance and send it to the completer.
         completer.complete(
-          IsoxInstance(isolate, message, itm, subscription),
+          IsoxInstance(
+            isolate,
+            message,
+            itm,
+            itmSubscription,
+          ),
         );
-      } else if (message is _IsoxInitializingException) {
-        completer.completeError(StateError(
-          'Unable to initialize the isolate.',
-        ));
+      } else if (message is _IsoxErrorContainer) {
+        // If the completer is not yet completed, then this exception is an initialization exception.
+        if (!completer.isCompleted) {
+          final exception = IsoxInitializationException(
+            message.message,
+            StackTrace.fromString(message.stackTrace),
+          );
+
+          completer.completeError(exception);
+          itmSubscription.cancel();
+        }
       } else {
         // Just to be sure...
         completer.completeError(StateError(
@@ -59,6 +79,8 @@ class IsoxInstance<S> {
         ));
       }
     });
+
+    isolate.resume(isolate.pauseCapability);
 
     return completer.future;
   }
@@ -101,7 +123,7 @@ class IsoxInstance<S> {
 
     // Complete all pending requests with an error.
     _commandCompleter.forEach((_, completer) {
-      completer.completeError(IsoxInterruptionError());
+      completer.completeError(IsoxInterruptionException());
     });
   }
 
@@ -114,6 +136,17 @@ class IsoxInstance<S> {
         completer.complete(message.commandOutput);
 
         _commandCompleter.remove(message.identifier);
+      } else if (message is _IsoxErrorContainer) {
+        final completer = _commandCompleter[message.identifier];
+
+        final exception = IsoxWrappedException(
+          message.message,
+          StackTrace.fromString(message.stackTrace),
+        );
+
+        completer.completeError(exception);
+
+        _commandCompleter.remove(message.identifier);
       }
     });
   }
@@ -124,13 +157,23 @@ void _loadIsoxIsolate<S>(_IsoxIsolateInitializer<S> initializer) {
   final mti = ReceivePort();
   final itm = initializer.sendPort;
 
-  dynamic state;
   var config = InternalIsoxConfig();
 
+  dynamic state;
   try {
-    state = initializer.init(config);
-  } catch (ex) {
-    initializer.sendPort.send(_IsoxInitializingException());
+    state = runZonedGuarded(() {
+      return initializer.init(config);
+    }, (error, stack) {
+      initializer.sendPort.send(_IsoxErrorContainer(
+        null,
+        error?.toString(),
+        stack?.toString(),
+      ));
+
+      // Throw the error to
+      throw error;
+    });
+  } catch (_) {
     return;
   }
 
@@ -143,7 +186,15 @@ void _loadIsoxIsolate<S>(_IsoxIsolateInitializer<S> initializer) {
 
       if (cmd != null) {
         try {
-          final cmdResult = await cmd.run(message.commandInput, state);
+          final cmdResult = await runZonedGuarded(() async {
+            return await cmd.run(message.commandInput, state);
+          }, (error, stack) {
+            itm.send(_IsoxErrorContainer(
+              message.identifier,
+              error?.toString(),
+              stack?.toString(),
+            ));
+          });
 
           itm.send(_IsoxInstanceResponse(message.identifier, cmdResult));
         } catch (ex, stack) {
@@ -178,8 +229,14 @@ class _IsoxInstanceResponse {
   _IsoxInstanceResponse(this.identifier, this.commandOutput);
 }
 
-class _IsoxInitializingException {}
+class _IsoxErrorContainer {
+  final int identifier;
+  final String message;
+  final String stackTrace;
 
-/// Exception which will be thrown when a isolate has been killed before
-/// completing pending requests.
-class IsoxInterruptionError implements Exception {}
+  _IsoxErrorContainer(
+    this.identifier,
+    this.message,
+    this.stackTrace,
+  );
+}
