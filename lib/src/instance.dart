@@ -96,7 +96,7 @@ class IsoxInstance<S> {
     );
 
     // Return immediately if no response is expected.
-    if (!command.hasResponse) {
+    if (!command.waitForResponse) {
       return null;
     }
 
