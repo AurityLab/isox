@@ -32,7 +32,20 @@ class IsoxInitializationException extends IsoxWrappedException {
   }
 }
 
-
 /// Exception which will be thrown when a isolate has been killed before
 /// completing pending requests.
 class IsoxInterruptionException implements IsoxException {}
+
+/// Describes an exception which will be thrown when a command was not found
+/// (or simply not registered). The exception object contains the name of
+/// the command which was not found.
+class IsoxCommandNotFoundException extends IsoxException {
+  final String command;
+
+  IsoxCommandNotFoundException(this.command);
+
+  @override
+  String toString() {
+    return 'IsoxCommandNotFoundException: $command';
+  }
+}

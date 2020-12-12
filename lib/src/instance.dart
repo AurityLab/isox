@@ -131,24 +131,35 @@ class IsoxInstance<S> {
   void _bindListener() {
     _subscription.onData((message) {
       if (message is _IsoxInstanceResponse) {
-        final completer = _commandCompleter[message.identifier];
-
-        completer.complete(message.commandOutput);
-
-        _commandCompleter.remove(message.identifier);
+        _completeCommand(message.identifier, (completer) {
+          completer.complete(message.commandOutput);
+        });
       } else if (message is _IsoxErrorContainer) {
-        final completer = _commandCompleter[message.identifier];
-
-        final exception = IsoxWrappedException(
-          message.message,
-          StackTrace.fromString(message.stackTrace),
-        );
-
-        completer.completeError(exception);
-
-        _commandCompleter.remove(message.identifier);
+        _completeCommand(message.identifier, (completer) {
+          completer.completeError(IsoxWrappedException(
+            message.message,
+            StackTrace.fromString(message.stackTrace),
+          ));
+        });
+      } else if (message is _IsoxCommandNotFoundResponse) {
+        _completeCommand(message.identifier, (completer) {
+          completer.completeError(IsoxCommandNotFoundException(
+            message.command,
+          ));
+        });
       }
     });
+  }
+
+  /// Will complete the command with the given [identifier]. After executing
+  /// the [callback], the completer will be removed from the waiting
+  /// commands list.
+  void _completeCommand(int identifier, void Function(Completer) callback) {
+    final completer = _commandCompleter[identifier];
+
+    callback(completer);
+
+    _commandCompleter.remove(identifier);
   }
 }
 
@@ -202,6 +213,11 @@ void _loadIsoxIsolate<S>(_IsoxIsolateInitializer<S> initializer) {
             config.errorHandler(ex, stack);
           }
         }
+      } else {
+        itm.send(_IsoxCommandNotFoundResponse(
+          message.identifier,
+          message.commandName,
+        ));
       }
     }
   });
@@ -238,5 +254,15 @@ class _IsoxErrorContainer {
     this.identifier,
     this.message,
     this.stackTrace,
+  );
+}
+
+class _IsoxCommandNotFoundResponse {
+  final int identifier;
+  final String command;
+
+  _IsoxCommandNotFoundResponse(
+    this.identifier,
+    this.command,
   );
 }
