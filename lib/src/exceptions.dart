@@ -49,3 +49,16 @@ class IsoxCommandNotFoundException extends IsoxException {
     return 'IsoxCommandNotFoundException: $command';
   }
 }
+
+/// Defines an exception which will be thrown when there is already a command
+/// with the same name.
+class IsoxCommandDuplicationException implements IsoxException {
+  final String duplicatedName;
+
+  IsoxCommandDuplicationException(this.duplicatedName);
+
+  @override
+  String toString() {
+    return "Command with name '$duplicatedName' is already registered";
+  }
+}

@@ -9,9 +9,10 @@ import 'package:isox/src/config_implementation.dart';
 abstract class IsoxConfig {
   /// Will add the given [command] to this config. The [command] must not be
   /// null. If there is already a command with the same name, a
-  ///[IsoxRegistryDuplicationException] will be thrown.
+  ///[IsoxCommandDuplicationException] will be thrown.
   void command(IsoxCommand<dynamic, dynamic, dynamic> command);
 
   /// Will set the [IsoxErrorHandler] for this config.
   set errorHandler(IsoxErrorHandler handler);
 }
+
