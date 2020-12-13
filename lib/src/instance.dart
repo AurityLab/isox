@@ -213,7 +213,6 @@ void _loadIsoxIsolate<S>(_IsoxIsolateInitializer<S> initializer) {
       final cmd = config.commands[message.commandName];
 
       if (cmd != null) {
-        try {
           final cmdResult = await runZonedGuarded(() async {
             return await cmd.run(message.commandInput, state);
           }, (error, stack) {
@@ -222,14 +221,13 @@ void _loadIsoxIsolate<S>(_IsoxIsolateInitializer<S> initializer) {
               error?.toString(),
               stack?.toString(),
             ));
+
+            if (config.errorHandler != null) {
+              config.errorHandler(error, stack);
+            }
           });
 
           itm.send(_IsoxInstanceResponse(message.identifier, cmdResult));
-        } catch (ex, stack) {
-          if (config.errorHandler != null) {
-            config.errorHandler(ex, stack);
-          }
-        }
       } else {
         itm.send(_IsoxCommandNotFoundResponse(
           message.identifier,
