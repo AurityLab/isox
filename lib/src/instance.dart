@@ -5,6 +5,9 @@ import 'package:isox/isox.dart';
 import 'package:isox/src/config_implementation.dart';
 import 'package:isox/src/exceptions.dart';
 
+/// An instance which basically represents a single running Isolate. Commands
+/// can be executing on the Isolate using [run]. To shutdown the Isolate,
+/// [close] must be called.
 class IsoxInstance<S> {
   // The isolate which is represented by this instance.
   final Isolate _isolate;
@@ -21,7 +24,7 @@ class IsoxInstance<S> {
 
   final Map<int, Completer<dynamic>> _commandCompleter = {};
 
-  IsoxInstance(
+  IsoxInstance._(
     this._isolate,
     this._mtiPort,
     this._itmPort,
@@ -30,6 +33,10 @@ class IsoxInstance<S> {
     _bindListener();
   }
 
+  /// Will load an [IsoxInstance] with the given [init] function.
+  /// The [init] function must be a top-level function, otherwise the
+  /// instantiation will fail.
+  /// See [Isox.start].
   static Future<IsoxInstance<S>> loadIsolate<S>(IsoxInit<S> init) async {
     // Define the completer for the initialization of this instance.
     // The future of this completer will later on be returned by this method.
@@ -54,7 +61,7 @@ class IsoxInstance<S> {
       if (message is SendPort) {
         // Create the instance and send it to the completer.
         completer.complete(
-          IsoxInstance(
+          IsoxInstance._(
             isolate,
             message,
             itm,
@@ -85,6 +92,12 @@ class IsoxInstance<S> {
     return completer.future;
   }
 
+  /// Will execute the given [command] on the Isolate with the given [input].
+  /// The returned [Future] will be resolved after the command runner has been
+  /// completed on the Isolate or the command does not wait for a response.
+  /// If the [command] is not registered, an [IsoxCommandNotFoundException]
+  /// will be thrown. If an error/exception during the command execution
+  /// occurs, an [IsoxWrappedException] will be thrown.
   Future<O> run<I, O>(IsoxCommand<I, O, dynamic> command, I input) {
     final identifier = _count++;
 
