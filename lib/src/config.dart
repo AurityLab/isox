@@ -1,5 +1,4 @@
 import 'package:isox/isox.dart';
-import 'package:isox/src/config_implementation.dart';
 
 /// Describes the configuration for an Isox isolate. Using this config, the
 /// commands can be registered and an error handler can be set.
@@ -15,4 +14,3 @@ abstract class IsoxConfig {
   /// Will set the [IsoxErrorHandler] for this config.
   set errorHandler(IsoxErrorHandler handler);
 }
-
