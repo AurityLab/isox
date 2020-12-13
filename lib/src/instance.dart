@@ -142,26 +142,30 @@ class IsoxInstance<S> {
 
   /// Will bind listeners to the isolate to main port.
   void _bindListener() {
-    _subscription.onData((message) {
-      if (message is _IsoxInstanceResponse) {
-        _completeCommand(message.identifier, (completer) {
-          completer.complete(message.commandOutput);
-        });
-      } else if (message is _IsoxErrorContainer) {
-        _completeCommand(message.identifier, (completer) {
-          completer.completeError(IsoxWrappedException(
-            message.message,
-            StackTrace.fromString(message.stackTrace),
-          ));
-        });
-      } else if (message is _IsoxCommandNotFoundResponse) {
-        _completeCommand(message.identifier, (completer) {
-          completer.completeError(IsoxCommandNotFoundException(
-            message.command,
-          ));
-        });
-      }
-    });
+    _subscription.onData(_handleIsolateMessage);
+  }
+
+  /// Accepts incoming messages from the Isolate. This covers the basic
+  /// responses from an Isolate.
+  void _handleIsolateMessage(dynamic message) {
+    if (message is _IsoxInstanceResponse) {
+      _completeCommand(message.identifier, (completer) {
+        completer.complete(message.commandOutput);
+      });
+    } else if (message is _IsoxErrorContainer) {
+      _completeCommand(message.identifier, (completer) {
+        completer.completeError(IsoxWrappedException(
+          message.message,
+          StackTrace.fromString(message.stackTrace),
+        ));
+      });
+    } else if (message is _IsoxCommandNotFoundResponse) {
+      _completeCommand(message.identifier, (completer) {
+        completer.completeError(IsoxCommandNotFoundException(
+          message.command,
+        ));
+      });
+    }
   }
 
   /// Will complete the command with the given [identifier]. After executing
