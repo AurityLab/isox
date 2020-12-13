@@ -1,6 +1,6 @@
 name: isox
 description: Run your Isolates with bidirectional communication. Isox provides a simple request/reply pattern to communicate with your Isolates.
-version: 0.1.0
+version: 0.2.0
 homepage: https://github.com/AurityLab/isox
 issue_tracker: https://github.com/AurityLab/isox/issues
 
