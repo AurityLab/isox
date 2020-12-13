@@ -98,7 +98,7 @@ class IsoxInstance<S> {
   /// If the [command] is not registered, an [IsoxCommandNotFoundException]
   /// will be thrown. If an error/exception during the command execution
   /// occurs, an [IsoxWrappedException] will be thrown.
-  Future<O> run<I, O>(IsoxCommand<I, O, dynamic> command, I input) {
+  Future<O> run<I, O>(IsoxCommand<I, O, S> command, I input) {
     final identifier = _count++;
 
     // Create the request object.
