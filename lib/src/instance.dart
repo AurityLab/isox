@@ -3,7 +3,11 @@ import 'dart:isolate';
 
 import 'package:isox/isox.dart';
 import 'package:isox/src/config_implementation.dart';
+import 'package:isox/src/exceptions.dart';
 
+/// An instance which basically represents a single running Isolate. Commands
+/// can be executing on the Isolate using [run]. To shutdown the Isolate,
+/// [close] must be called.
 class IsoxInstance<S> {
   // The isolate which is represented by this instance.
   final Isolate _isolate;
@@ -20,7 +24,7 @@ class IsoxInstance<S> {
 
   final Map<int, Completer<dynamic>> _commandCompleter = {};
 
-  IsoxInstance(
+  IsoxInstance._(
     this._isolate,
     this._mtiPort,
     this._itmPort,
@@ -29,29 +33,50 @@ class IsoxInstance<S> {
     _bindListener();
   }
 
+  /// Will load an [IsoxInstance] with the given [init] function.
+  /// The [init] function must be a top-level function, otherwise the
+  /// instantiation will fail.
+  /// See [Isox.start].
   static Future<IsoxInstance<S>> loadIsolate<S>(IsoxInit<S> init) async {
+    // Define the completer for the initialization of this instance.
+    // The future of this completer will later on be returned by this method.
+    final completer = Completer<IsoxInstance<S>>();
+
     // Create a receive port for isolate to main communication.
     final itm = ReceivePort();
 
-    // Start the actual isolate.
+    // Start the actual isolate in paused state to initialize all listeners
+    // for the ports.
     final isolate = await Isolate.spawn(
       _loadIsoxIsolate,
       _IsoxIsolateInitializer<S>(init, itm.sendPort),
+      paused: true,
     );
 
-    final completer = Completer<IsoxInstance<S>>();
-
-    late StreamSubscription subscription;
-    subscription = itm.listen((message) {
+    // Add a listener to the isolate-to-main port.
+    late StreamSubscription itmSubscription;
+    itmSubscription = itm.listen((message) {
       if (message is SendPort) {
-        // Return the instance.
+        // Create the instance and send it to the completer.
         completer.complete(
-          IsoxInstance(isolate, message, itm, subscription),
+          IsoxInstance._(
+            isolate,
+            message,
+            itm,
+            itmSubscription,
+          ),
         );
-      } else if (message is _IsoxInitializingException) {
-        completer.completeError(StateError(
-          'Unable to initialize the isolate.',
-        ));
+      } else if (message is _IsoxErrorContainer) {
+        // If the completer is not yet completed, then this exception is an initialization exception.
+        if (!completer.isCompleted) {
+          final exception = IsoxInitializationException(
+            message.message,
+            StackTrace.fromString(message.stackTrace),
+          );
+
+          completer.completeError(exception);
+          itmSubscription.cancel();
+        }
       } else {
         // Just to be sure...
         completer.completeError(StateError(
@@ -60,10 +85,18 @@ class IsoxInstance<S> {
       }
     });
 
+    isolate.resume(isolate.pauseCapability!);
+
     return completer.future;
   }
 
-  Future<O> run<I, O>(IsoxCommand<I, O, dynamic> command, I input) {
+  /// Will execute the given [command] on the Isolate with the given [input].
+  /// The returned [Future] will be resolved after the command runner has been
+  /// completed on the Isolate or the command does not wait for a response.
+  /// If the [command] is not registered, an [IsoxCommandNotFoundException]
+  /// will be thrown. If an error/exception during the command execution
+  /// occurs, an [IsoxWrappedException] will be thrown.
+  Future<O> run<I, O>(IsoxCommand<I, O, S> command, I input) {
     final identifier = _count++;
 
     // Create the request object.
@@ -74,7 +107,7 @@ class IsoxInstance<S> {
     );
 
     // Return immediately if no response is expected.
-    if (!command.hasResponse) {
+    if (!command.waitForResponse) {
       return Future.value();
     }
 
@@ -101,21 +134,47 @@ class IsoxInstance<S> {
 
     // Complete all pending requests with an error.
     _commandCompleter.forEach((_, completer) {
-      completer.completeError(IsoxInterruptionError());
+      completer.completeError(IsoxInterruptionException());
     });
   }
 
   /// Will bind listeners to the isolate to main port.
   void _bindListener() {
-    _subscription.onData((message) {
-      if (message is _IsoxInstanceResponse) {
-        final completer = _commandCompleter[message.identifier]!;
+    _subscription.onData(_handleIsolateMessage);
+  }
 
+  /// Accepts incoming messages from the Isolate. This covers the basic
+  /// responses from an Isolate.
+  void _handleIsolateMessage(dynamic message) {
+    if (message is _IsoxInstanceResponse) {
+      _completeCommand(message.identifier, (completer) {
         completer.complete(message.commandOutput);
+      });
+    } else if (message is _IsoxErrorContainer) {
+      _completeCommand(message.identifier!, (completer) {
+        completer.completeError(IsoxWrappedException(
+          message.message,
+          StackTrace.fromString(message.stackTrace),
+        ));
+      });
+    } else if (message is _IsoxCommandNotFoundResponse) {
+      _completeCommand(message.identifier, (completer) {
+        completer.completeError(IsoxCommandNotFoundException(
+          message.command,
+        ));
+      });
+    }
+  }
 
-        _commandCompleter.remove(message.identifier);
-      }
-    });
+  /// Will complete the command with the given [identifier]. After executing
+  /// the [callback], the completer will be removed from the waiting
+  /// commands list.
+  void _completeCommand(int identifier, void Function(Completer) callback) {
+    final completer = _commandCompleter[identifier]!;
+
+    callback(completer);
+
+    _commandCompleter.remove(identifier);
   }
 }
 
@@ -124,13 +183,23 @@ void _loadIsoxIsolate<S>(_IsoxIsolateInitializer<S> initializer) {
   final mti = ReceivePort();
   final itm = initializer.sendPort;
 
-  dynamic state;
   var config = InternalIsoxConfig();
 
+  dynamic state;
   try {
-    state = initializer.init(config);
-  } catch (ex) {
-    initializer.sendPort.send(_IsoxInitializingException());
+    state = runZonedGuarded(() {
+      return initializer.init(config);
+    }, (error, stack) {
+      initializer.sendPort.send(_IsoxErrorContainer(
+        null,
+        error.toString(),
+        stack.toString(),
+      ));
+
+      // Throw the error to
+      throw error;
+    });
+  } catch (_) {
     return;
   }
 
@@ -142,15 +211,26 @@ void _loadIsoxIsolate<S>(_IsoxIsolateInitializer<S> initializer) {
       final cmd = config.commands[message.commandName];
 
       if (cmd != null) {
-        try {
-          final cmdResult = await cmd.run(message.commandInput, state);
+          final cmdResult = await runZonedGuarded(() async {
+            return await cmd.run(message.commandInput, state);
+          }, (error, stack) {
+            itm.send(_IsoxErrorContainer(
+              message.identifier,
+              error.toString(),
+              stack.toString(),
+            ));
+
+            if (config.errorHandler != null) {
+              config.errorHandler!(error, stack);
+            }
+          });
 
           itm.send(_IsoxInstanceResponse(message.identifier, cmdResult));
-        } catch (ex, stack) {
-          if (config.errorHandler != null) {
-            config.errorHandler!(ex, stack);
-          }
-        }
+      } else {
+        itm.send(_IsoxCommandNotFoundResponse(
+          message.identifier,
+          message.commandName,
+        ));
       }
     }
   });
@@ -178,8 +258,24 @@ class _IsoxInstanceResponse {
   _IsoxInstanceResponse(this.identifier, this.commandOutput);
 }
 
-class _IsoxInitializingException {}
+class _IsoxErrorContainer {
+  final int? identifier;
+  final String message;
+  final String stackTrace;
 
-/// Exception which will be thrown when a isolate has been killed before
-/// completing pending requests.
-class IsoxInterruptionError implements Exception {}
+  _IsoxErrorContainer(
+    this.identifier,
+    this.message,
+    this.stackTrace,
+  );
+}
+
+class _IsoxCommandNotFoundResponse {
+  final int identifier;
+  final String command;
+
+  _IsoxCommandNotFoundResponse(
+    this.identifier,
+    this.command,
+  );
+}

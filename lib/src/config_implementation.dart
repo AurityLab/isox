@@ -13,7 +13,7 @@ class InternalIsoxConfig implements IsoxConfig {
 
   /// Will add the given [command] to the registry. [command] must not be null.
   /// If there is already a command with the same name,
-  /// a [IsoxRegistryDuplicationException] will be thrown.
+  /// a [IsoxCommandDuplicationException] will be thrown.
   @override
   void command(IsoxCommand<dynamic, dynamic, dynamic> command) {
     // Check for duplicates.
@@ -42,20 +42,7 @@ class InternalIsoxConfig implements IsoxConfig {
 
     if (hasDuplicate) {
       // Throw an exception which indicates the duplicate name.
-      throw IsoxRegistryDuplicationException(name);
+      throw IsoxCommandDuplicationException(name);
     }
-  }
-}
-
-/// Defines an exception which will be thrown when there is already a command
-/// with the same name.
-class IsoxRegistryDuplicationException implements Exception {
-  final String duplicatedName;
-
-  IsoxRegistryDuplicationException(this.duplicatedName);
-
-  @override
-  String toString() {
-    return "Command with name '$duplicatedName' is already registered";
   }
 }
