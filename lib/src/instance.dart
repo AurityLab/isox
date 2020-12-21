@@ -4,13 +4,14 @@ import 'dart:isolate';
 import 'package:isox/isox.dart';
 import 'package:isox/src/config_implementation.dart';
 import 'package:isox/src/exceptions.dart';
+import 'package:isox/src/group.dart';
 
 /// An instance which basically represents a single running Isolate. Commands
 /// can be executing on the Isolate using [run]. To shutdown the Isolate,
 /// [close] must be called.
 class IsoxInstance<S> {
   // The isolate which is represented by this instance.
-  final Isolate _isolate;
+  final IsoxGroup _group;
 
   // The ports to the Isolate.
   final SendPort _mtiPort;
@@ -25,7 +26,7 @@ class IsoxInstance<S> {
   final Map<int, Completer<dynamic>> _commandCompleter = {};
 
   IsoxInstance._(
-    this._isolate,
+    this._group,
     this._mtiPort,
     this._itmPort,
     this._subscription,
@@ -37,7 +38,10 @@ class IsoxInstance<S> {
   /// The [init] function must be a top-level function, otherwise the
   /// instantiation will fail.
   /// See [Isox.start].
-  static Future<IsoxInstance<S>> loadIsolate<S>(IsoxInit<S> init) async {
+  static Future<IsoxInstance<S>> loadIsolate<S>(
+    IsoxInit<S> init, {
+    IsoxGroup group,
+  }) async {
     // Define the completer for the initialization of this instance.
     // The future of this completer will later on be returned by this method.
     final completer = Completer<IsoxInstance<S>>();
@@ -45,13 +49,7 @@ class IsoxInstance<S> {
     // Create a receive port for isolate to main communication.
     final itm = ReceivePort();
 
-    // Start the actual isolate in paused state to initialize all listeners
-    // for the ports.
-    final isolate = await Isolate.spawn(
-      _loadIsoxIsolate,
-      _IsoxIsolateInitializer<S>(init, itm.sendPort),
-      paused: true,
-    );
+    group ??= await Isox.startGroup();
 
     // Holds the subscription for the isolate-to-main port.
     StreamSubscription itmSubscription;
@@ -62,7 +60,7 @@ class IsoxInstance<S> {
         // Create the instance and send it to the completer.
         completer.complete(
           IsoxInstance._(
-            isolate,
+            group,
             message,
             itm,
             itmSubscription,
@@ -87,7 +85,14 @@ class IsoxInstance<S> {
       }
     });
 
-    isolate.resume(isolate.pauseCapability);
+    // Start the actual isolate in paused state to initialize all listeners
+    // for the ports.
+    await group.registerInstance(
+      _loadIsoxIsolate,
+      IsoxIsolateInitializer<S>(init, itm.sendPort),
+    );
+
+    //isolate.resume(isolate.pauseCapability);
 
     return completer.future;
   }
@@ -129,7 +134,7 @@ class IsoxInstance<S> {
   /// completes the pending requests with an error.
   Future<void> close() async {
     // Kill the Isolate.
-    _isolate.kill();
+    //_isolate.kill();
     // Close the ports.
     _itmPort.close();
     await _subscription.cancel();
@@ -180,7 +185,7 @@ class IsoxInstance<S> {
   }
 }
 
-void _loadIsoxIsolate<S>(_IsoxIsolateInitializer<S> initializer) {
+void _loadIsoxIsolate<S>(IsoxIsolateInitializer<S> initializer) {
   // Create a new receive port for main to isolate.
   final mti = ReceivePort();
   final itm = initializer.sendPort;
@@ -238,11 +243,11 @@ void _loadIsoxIsolate<S>(_IsoxIsolateInitializer<S> initializer) {
   });
 }
 
-class _IsoxIsolateInitializer<S> {
+class IsoxIsolateInitializer<S> {
   final IsoxInit<S> init;
   final SendPort sendPort;
 
-  _IsoxIsolateInitializer(this.init, this.sendPort);
+  IsoxIsolateInitializer(this.init, this.sendPort);
 }
 
 class _IsoxInstanceRequest {
