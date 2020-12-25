@@ -1,4 +1,5 @@
 import 'package:isox/isox.dart';
+import 'package:isox/src/instance.dart';
 
 /// Typedef which will be used to initialize the Isox isolate. This provides
 /// a [config] and expects the initial state (of type [S]) to be returned.
@@ -9,3 +10,6 @@ typedef IsoxErrorHandler = void Function(dynamic error, StackTrace stackTrace);
 
 /// Typedef which will be used to execute the actual command.
 typedef IsoxCommandRunner<I, O, S> = Future<O> Function(I, S);
+
+/// Typedef which will be use to configure an instance by the given [initializer].
+typedef IsoxLoader = void Function(IsoxIsolateInitializer initializer);

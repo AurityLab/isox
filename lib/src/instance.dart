@@ -37,7 +37,10 @@ class IsoxInstance<S> {
   /// Will load an [IsoxInstance] with the given [init] function.
   /// The [init] function must be a top-level function, otherwise the
   /// instantiation will fail.
-  /// See [Isox.start].
+  /// If [group] is null, a new (private) one will be created just for this
+  /// instance.
+  ///
+  /// See [Isox.start] for usage with the facade.
   static Future<IsoxInstance<S>> loadIsolate<S>(
     IsoxInit<S> init, {
     IsoxGroup group,
@@ -49,7 +52,9 @@ class IsoxInstance<S> {
     // Create a receive port for isolate to main communication.
     final itm = ReceivePort();
 
+    // Start a new group if none is given.
     group ??= await Isox.startGroup();
+    final internalGroup = group as InternalIsoxGroup;
 
     // Holds the subscription for the isolate-to-main port.
     StreamSubscription itmSubscription;
@@ -87,7 +92,7 @@ class IsoxInstance<S> {
 
     // Start the actual isolate in paused state to initialize all listeners
     // for the ports.
-    await group.registerInstance(
+    await internalGroup.attachInstance(
       _loadIsoxIsolate,
       IsoxIsolateInitializer<S>(init, itm.sendPort),
     );

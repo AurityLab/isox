@@ -17,10 +17,12 @@ class Isox {
 
   /// Will start a new [IsoxInstance] with the given [init] function.
   /// The [init] function must be a top-level function, otherwise the
-  /// instantiation will fail.
+  /// instantiation will fail. If [group] is not null, the created instance
+  /// will be attached to the group. Otherwise a new group will created.
   static Future<IsoxInstance> start<S>(IsoxInit<S> init, {IsoxGroup group}) =>
       IsoxInstance.loadIsolate<S>(init);
 
   /// Will start a new [IsoxGroup].
-  static Future<IsoxGroup> startGroup() => IsoxGroup.loadGroup();
+  static Future<IsoxGroup> startGroup({String debugName}) =>
+      IsoxGroup.loadGroup(debugName: debugName);
 }

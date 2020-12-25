@@ -23,6 +23,7 @@ void main() async {
 
   // Close the Isox instance (and kill the actual isolate)
   await instance.close();
+  await group.close();
 }
 
 /// Will initialize the Isox instance with the state and the commands.
